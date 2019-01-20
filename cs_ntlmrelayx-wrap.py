@@ -59,13 +59,13 @@ def main():
 
 	#Quick Check that Responder Config is OK
 	if 'SMB = On' in open('/usr/share/responder/Responder.conf').read():
-		print colored('[-]Updating SMB = On in /usr/share/responder/Responder.conf to SMB = Off, remember to change back when finished - python cs_ntlmrelayx-wrap.py -r reset','red') 
+		print colored('[-]Updating SMB = On in /usr/share/responder/Responder.conf to SMB = Off','yellow') 
 		
 		proc = subprocess.Popen("sed -i 's/SMB = On/SMB = Off/g' /usr/share/responder/Responder.conf", stdout=subprocess.PIPE,shell=True)
 		print proc.communicate()[0]	
 
 	if 'HTTP = On' in open('/usr/share/responder/Responder.conf').read():
-		print colored('[-]Updating HTTP = On in /usr/share/responder/Responder.conf to HTTP = Off, remember to change back when finished - python cs_ntlmrelayx-wrap.py -r reset','red') 
+		print colored('[-]Updating HTTP = On in /usr/share/responder/Responder.conf to HTTP = Off','yellow') 
 
 		proc = subprocess.Popen("sed -i 's/HTTP = On/HTTP = Off/g' /usr/share/responder/Responder.conf", stdout=subprocess.PIPE,shell=True)
 		print proc.communicate()[0]	
