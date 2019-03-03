@@ -1,5 +1,3 @@
-# ntlm-relayx-wrap
-
-NXW - Makes launching an NTLM relay attack even easier.
+# NXW - The lazy way to NTLM relay
 
 ![HashMatch](https://github.com/rmdavy/ntlmrelayx-wrap/blob/master/relay.jpg)
